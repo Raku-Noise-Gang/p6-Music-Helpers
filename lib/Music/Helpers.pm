@@ -1,7 +1,7 @@
 use v6.c;
 use Audio::PortMIDI;
 
-unit package Audio::Helpers;
+unit package Music::Helpers;
 
 enum NoteName is export < C Cs D Ds E F Fs G Gs A As B Bs >;
 enum Interval is export <P1 m2 M2 m3 M3 P4 TT P5 m6 M6 m7 M7>;
