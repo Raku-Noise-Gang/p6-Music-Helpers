@@ -1,23 +1,11 @@
 use Music::Helpers;
 
 multi MAIN(:$mode = 'major', Int :$root = 48, Int :$channel = 3) {
-    my $mode-obj = Mode.new(:$mode, :root(Note.new(:midi($root))));
+    my $mode-obj = Mode.new(:$mode, :root(NoteName($root % 12)));
 
     my $pm = Audio::PortMIDI.new;
     my $s  = $pm.open-output(3, 32);
     my $in = $pm.open-input($pm.default-input-device.device-id, 32);
-
-    my @chords;
-    my $chord = $mode-obj.chords(:octaves([3,4])).pick;
-    my @steps = (|([m2, M2, P4], [m3, M3, P5], [m6, M6, m7, M7, P1], [m3, M3, m6, M6, P1]) xx 2);
-    for @steps {
-        @chords.push: $chord; 
-        $chord = $mode-obj.next-chord($chord, intervals => $_).invert( ^3 .pick );
-        $chord .= invert(-1) while $chord.root.midi > 55;
-        $chord .= invert(1)  while $chord.root.midi < 46;
-    }
-
-    my $next-chord = @chords[0];
 
     sub flip-flop { $ .= not }
 
@@ -29,21 +17,28 @@ multi MAIN(:$mode = 'major', Int :$root = 48, Int :$channel = 3) {
         }
     }
 
-    my $melnote = ((flip-flop() ?? $chord.notes[0] !! $mode-obj.next-chord($chord, intervals => [m2, M2, m3, M3, m6, M6]).notes) <<+>> 12).pick;
-    my $third = $mode-obj.notes.grep({ $_.is-interval($melnote, one(m3, M3)) })[0];;
-    my $set-next;
+    my @intervals = Interval.pick(3);
 
     react {
+        my $next-chord;
+        my $chord = $mode-obj.chords.pick;
+        my $melnote = $chord.notes.pick + 12;
+        my $third = $mode-obj.notes.grep({ $_.is-interval($melnote, one(M3, m3)) && $_.octave == $melnote.octave })[0];
+        my $sw = 0;
         whenever $code -> $ev {
             my Audio::PortMIDI::Event @outevs;
             if $ev {
                 given $ev[0].data-two {
-                    my $v;
+                    my $redo = False;
                     when * +& 1 {
+                        if $sw++ %% 4 {
+                            @intervals = Interval.pick(6);
+                            say "switching chords";
+                        }
                         proceed if rand < .1;
-                        $next-chord = $mode-obj.next-chord($chord, intervals => [m2, M3, TT, M6, m7]).invert((-3, -2, -1, 0, 1, 2, 3).pick);
-                        $next-chord .= invert(-1) while $next-chord.root.octave > 4;
-                        $next-chord .= invert( 1) while $next-chord.root.octave < 3;
+                        $next-chord = $mode-obj.next-chord($chord, :@intervals).invert((-3, -2, -1, 0, 1, 2, 3).pick);
+                        $next-chord .= invert(-1) while any($next-chord.notes>>.octave) > 4;
+                        $next-chord .= invert( 1) while any($next-chord.notes>>.octave) < 3;
                         say $next-chord.Str;
                         # proceed if rand < .2;
                         for $chord.OffEvents {
@@ -55,22 +50,23 @@ multi MAIN(:$mode = 'major', Int :$root = 48, Int :$channel = 3) {
                         }
                         proceed;
                     }
-                    when 7 < * < 14 {
-                        $v = (80..127).pick;
-                        if rand < .4 {
-                            $v = (80..127).cache.pick;
+                    when 1 < * {
+                        if rand < .4 || $redo {
+                            $redo = False;
                             @outevs.push: $melnote.OffEvent;
                             $melnote = $chord.notes.pick + (12, 24).pick;
                             if rand < .3 {
-                                $melnote = $mode-obj.notes.grep({ $_.is-interval($melnote, any(m2, M2, m7, M7)) }).pick;
+                                $melnote = $mode-obj.notes.grep({ $_.is-interval($melnote, any(@intervals.pick(3)) ) }).pick;
+                                $redo = True;
                             }
-                            @outevs.push: $melnote.OnEvent;
+                            @outevs.push: $melnote.?OnEvent // Empty;
                         } 
                         elsif rand < .2 {
                             @outevs.push: $third.OffEvent;
-                            $third = $mode-obj.notes.grep({ $_.is-interval($melnote, one(M3, m3)) }).pick + (12,24).pick;
-                            @outevs.push: $melnote.OnEvent;
-                            @outevs.push: $third.OnEvent;
+                            $third = $mode-obj.notes.grep({ $_.is-interval($melnote, one(M3, m3)) }).pick;
+                            @outevs.push: $melnote.?OnEvent // Empty;
+                            @outevs.push: $third.?OnEvent // Empty;
+                            $redo = True;
                         }
                         proceed;
                     }

@@ -1,9 +1,31 @@
 use v6.c;
+
+=begin pod
+
+=head1 NAME
+
+Music::Helpers - Abstractions for handling musical content
+
+=head1 SYNOPSIS
+
+    use Music::Helpers;
+
+    my $mode = Mode.new(:root(C), :mode('major'))
+
+    # prints 'C4 E4 G4 ==> C maj (inversion: 0)'
+    say $mode.tonic.Str;
+
+    # prints 'F4 A4 C5 ==> F maj (inversion: 0)'
+    say $mode.next-chord($mode.tonic, intervals => [P4]);
+
+
+=end pod
+
 use Audio::PortMIDI;
 
 unit package Music::Helpers;
 
-enum NoteName is export < C Cs D Ds E F Fs G Gs A As B Bs >;
+enum NoteName is export <C Cs D Ds E F Fs G Gs A As B Bs>;
 enum Interval is export <P1 m2 M2 m3 M3 P4 TT P5 m6 M6 m7 M7>;
 
 class Note is export {
@@ -11,20 +33,20 @@ class Note is export {
     has $.freq;
     has $.vel = 95;
 
-    multi infix:<==>(Note:D $lhs, Note:D $rhs) is export {
-        $lhs.same($rhs);
-    }
-
     method is-interval(Note:D: Note:D $rhs, Interval $int --> Bool) {
         my $diff = self.midi - $rhs.midi;
         $diff < 0 ?? $diff + 12 == $int !! $diff == $int
+    }
+
+    multi infix:<==>(Note:D $lhs, Note:D $rhs) is export {
+        $lhs.same($rhs);
     }
 
     #| Returns Nil or Less/Same/More
     method same(Note:D $: Note:D $rhs) {
         (self.midi % 12) == ($rhs.midi % 12)
             ?? self.midi == $rhs.midi 
-                ??  Same but True # ???
+                ??  Same but True
                 !!  self.midi < $rhs.midi 
                     ??  Less 
                     !!  More 
@@ -194,24 +216,36 @@ class Mode is export {
 
     }}}
 
-    my %modes = ionian      =>    [0,2,4,5,7,9,11],
-                dorian      =>    [0,2,3,5,7,9,10],
-                phrygian    =>    [0,1,3,5,7,8,10],
-                lydian      =>    [0,2,4,6,7,9,11],
-                mixolydian  =>    [0,2,4,5,7,9,10],
-                aeolian     =>    [0,2,3,5,7,9,10],
-                locrian     =>    [0,1,3,5,6,8,10],
-                major       =>    [0,2,4,5,7,9,11],
-                pentatonic  =>    [0,2,4,  7,9,  ];
+    my %modes = ionian      =>    [P1,M2,M3,P4,P5,M6,M7],
+                dorian      =>    [P1,M2,m3,P4,P5,M6,m7],
+                phrygian    =>    [P1,m2,m3,P4,P5,m6,m7],
+                lydian      =>    [P1,M2,M3,TT,P5,M6,M7],
+                mixolydian  =>    [P1,M2,M3,P4,P5,M6,m7],
+                aeolian     =>    [P1,M2,m3,P4,P5,M6,m7],
+                locrian     =>    [P1,m2,m3,P4,TT,m6,m7],
+                major       =>    [P1,M2,M3,P4,P5,M6,M7],
+                minor       =>    [P1,M2,m3,P4,P5,m6,m7],
+                pentatonic  =>    [P1,M2,M3,   P5,M6,  ];
 
-    has Str $.mode is required;
-    has Note $.root is required;
+    # subset ModeName of Str where * eq any %modes.keys;
+
+    has $.mode is required;
+    has NoteName $.root is required;
     has Note @!notes;
-    has Int $!offset;
-    has @.weights; # NYI, the commented part above might be useful...
+    has @.weights; # NYI, the multi-line commented part above might be useful...
 
-    submethod BUILD(:$!mode, :$!root, :@!weights) {
-        $!offset = $!root.midi % 12;
+    method modes {
+        %modes;
+    }
+
+    submethod BUILD(:$!mode, NoteName :$!root, :@!weights) { }
+
+    method tonic(Mode:D: :$octave = 4) {
+        $.chords.grep({ $_.root == $.root && $_.root.octave == $octave })[0]
+    }
+
+    method root(Mode:D: :$octave = 4) {
+        Note.new(:midi($!root + $octave * 12))
     }
 
     method next-chord(Mode:D: Chord $current, :@intervals = [ P1, P4, P5 ], :@octaves = [4]) {
@@ -228,7 +262,7 @@ class Mode is export {
         if !@!notes.elems {
             for @(%modes{$.mode}) -> $mode-offset {
                 for ^10 -> $oct-offset {
-                    @!notes.append( Note.new(midi => ($mode-offset + $!offset + (12 * $oct-offset))) );
+                    @!notes.append( Note.new(midi => ($mode-offset + $!root + (12 * $oct-offset))) );
                 }
             }
             @!notes .= sort({ $^a.midi <=> $^b.midi });

@@ -6,10 +6,13 @@ multi sub MAIN(:$server, :$tempo = 120) {
 
     constant MfID = 0x7d; # Manufacturer ID 'Educational'
 
-    my $step = 1/(($tempo/60)*2);
+    my $step = 1/(($tempo/60)*4);
 
 
-    my @nth = [0b1111, 0b1000, 0b1100, 0b1000, 0b1110, 0b1000, 0b1100, 0b1000];
+    my @nth = [ 0b1111, 0b0000, 0b1000, 0b0000,
+                0b1100, 0b0000, 0b1000, 0b0000,
+                0b1110, 0b0000, 0b1000, 0b0000,
+                0b1100, 0b0000, 0b1000, 0b0000];
 
     react {
         whenever Supply.interval($step) {
@@ -17,7 +20,7 @@ multi sub MAIN(:$server, :$tempo = 120) {
 
             my $m = Audio::PortMIDI::Event.new(status => 0b11110000, data-one => MfID, data-two => $data);
             my $n = Audio::PortMIDI::Event.new(status => 0b11110111);
-     
+
             my Audio::PortMIDI::Event @a = $m, $n;
             $stream.write(@a);
        }
@@ -43,24 +46,36 @@ multi sub MAIN(:$client) {
     my %map =   C => Audio::PortMIDI::Event.new(:$event-type, :$channel, data-one => 49, data-two => 127, timestamp => 0),
                 R => Audio::PortMIDI::Event.new(:$event-type, :$channel, data-one => 42, data-two => 127, timestamp => 10000000),
                 S => Audio::PortMIDI::Event.new(:$event-type, :$channel, data-one => 38, data-two => 127, timestamp => 1000),
-                B => Audio::PortMIDI::Event.new(:$event-type, :$channel, data-one => 35, data-two => 127, timestamp => 0);
+                B => Audio::PortMIDI::Event.new(:$event-type, :$channel, data-one => 35, data-two => 127, timestamp => 0),
+                s => Audio::PortMIDI::Event.new(:$event-type, :$channel, data-one => 37, data-two => 65, timestamp => 1000),
+                r => Audio::PortMIDI::Event.new(:$event-type, :$channel, data-one => 42, data-two => 65, timestamp => 10000000);
 
+    my $third-and = 0;
     react {
         whenever $code -> $ev {
             if $ev {
                 my Audio::PortMIDI::Event @outevs;
-                if $ev[0].event-type == SystemMessage && $ev[0].data-two != 0 {
+                if $ev[0].event-type == SystemMessage {
                     my $data = $ev[0].data-two;
                     given $data {
-                        when * +& 2 {
+                        when 15 {
                             @outevs.push: %map<B>;
+                            proceed
+                        }
+                        when 8 {
+                            @outevs.push: %map<B> if ++$third-and %% 3;
+                            proceed
+                        }
+                        when 0 {
+                            proceed if rand > .05;
+                            @outevs.push: %map<s>;
                             proceed
                         }
                         when * >= 8 {
                             @outevs.push: %map<R>;
                             proceed
                         }
-                        when 12 {
+                        when * == 12 {
                             @outevs.push: %map<S>;
                             proceed
                         }
