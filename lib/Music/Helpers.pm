@@ -26,7 +26,7 @@ use Audio::PortMIDI;
 unit package Music::Helpers;
 
 enum NoteName is export <C Cs D Ds E F Fs G Gs A As B Bs>;
-enum Interval is export <P1 m2 M2 m3 M3 P4 TT P5 m6 M6 m7 M7>;
+enum Interval is export <P1 m2 M2 m3 M3 P4 TT P5 m6 M6 m7 M7 P8>;
 
 class Note is export {
     has Int $.midi is required;
@@ -34,8 +34,12 @@ class Note is export {
     has $.vel = 95;
 
     method is-interval(Note:D: Note:D $rhs, Interval $int --> Bool) {
-        my $diff = self.midi - $rhs.midi;
-        $diff < 0 ?? $diff + 12 == $int !! $diff == $int
+        if self < $rhs {
+            $rhs.midi - self.midi == $int
+        }
+        else {
+            self.midi - $rhs.midi == $int
+        }
     }
 
     multi infix:<==>(Note:D $lhs, Note:D $rhs) is export {
@@ -45,11 +49,11 @@ class Note is export {
     #| Returns Nil or Less/Same/More
     method same(Note:D $: Note:D $rhs) {
         (self.midi % 12) == ($rhs.midi % 12)
-            ?? self.midi == $rhs.midi 
+            ?? self.midi == $rhs.midi
                 ??  Same but True
-                !!  self.midi < $rhs.midi 
-                    ??  Less 
-                    !!  More 
+                !!  self.midi < $rhs.midi
+                    ??  Less
+                    !!  More
             !! Nil
 
     }
@@ -71,7 +75,7 @@ class Note is export {
     multi infix:<->(Int $interval, Note:D $note --> Note) is export {
         &infix:<+>($note, -$interval)
     }
-    
+
     multi infix:<+>(Int $interval, Note:D $note --> Note) is export {
         &infix:<+>($note, $interval)
     }
@@ -79,11 +83,11 @@ class Note is export {
     multi infix:«>»(Note:D $lhs, Note:D $rhs --> Bool) is export {
         $lhs.midi < $rhs.midi
     }
-    
+
     multi infix:«<»(Note:D $lhs, Note:D $rhs --> Bool) is export {
         $lhs.midi < $rhs.midi
     }
-    
+
     method Numeric {
         $.midi
     }
@@ -92,27 +96,64 @@ class Note is export {
         $.midi div 12
     }
 
-    method OffEvent {
-        Audio::PortMIDI::Event.new(event-type => NoteOff, data-one => $.midi, data-two => $.vel, timestamp => 0, channel => 3);
+    method OffEvent(Int $channel = 1) {
+        Audio::PortMIDI::Event.new(event-type => NoteOff, data-one => $.midi, data-two => $.vel, timestamp => 0, :$channel);
     }
-    method OnEvent {
-        Audio::PortMIDI::Event.new(event-type => NoteOn, data-one => $.midi, data-two => $.vel, timestamp => 0, channel => 3);
+    method OnEvent(Int $channel = 1) {
+        Audio::PortMIDI::Event.new(event-type => NoteOn, data-one => $.midi, data-two => $.vel, timestamp => 0, :$channel);
     }
 
     method name {
         NoteName($.midi % 12).key;
     }
-    
+
     method Str {
         NoteName($.midi % 12).key ~ ($.midi div 12)
     }
 }
 
-import Note; 
+import Note;
+class Chord { ... };
+
+role maj {
+    method chord-type {
+        "maj"
+    }
+    method dom7 {
+        Chord.new(notes => [ |self.normal.notes, self.normal.notes[2] + m3 ])
+    }
+}
+role min {
+    method chord-type {
+        "min"
+    }
+}
+role weird {
+    method chord-type {
+        "weird"
+    }
+}
+role dom7 {
+    method chord-type {
+        "dom7"
+    }
+    method TT-subst {
+        my @notes = $.invert(-$.inversion).notes;
+        my $third = @notes[3];
+        my $seventh = @notes[1];
+        my $root = $third - M3;
+        my $fifth = $seventh - m3;
+        Chord.new(notes => [ $root, $third, $fifth, $seventh ]).invert($.inversion);
+    }
+}
 
 class Chord is export {
     has Note @.notes;
     has $.inversion;
+
+    method normal(Chord:D: ) {
+        self.invert(-$.inversion)
+    }
 
     method root(Chord:D: ) {
         @.notes[(* - $.inversion) % *]
@@ -149,36 +190,41 @@ class Chord is export {
 
     submethod BUILD(:@!notes, :$!inversion = 0) {
         @!notes = @!notes;
-        $!inversion = $!inversion % +@!notes
+        $!inversion = $!inversion % +@!notes;
+
+        my @intervals;
+        loop (my $i = 1; $i < @!notes; ++$i) {
+            @intervals.push: Interval(@!notes[$i] - @!notes[$i - 1]);
+        }
+
+        given @intervals {
+            when (M3, m3)|(P4, M3)|(m3, P4) {
+                self does maj;
+            }
+            when (m3, M3)|(P4, m3)|(M3, P4) {
+                self does min;
+            }
+            when (M3, m3, m3)|(m3, m3, M2)|(m3, M2, M3)|(M2, M3, m3) {
+                self does dom7;
+            }
+            default { # probably want more cases here
+                self does weird;
+            }
+        }
+
     }
 
-    method OffEvents(Chord:D: ) {
-        @.notes>>.OffEvent;
+    method OffEvents(Chord:D: Int $channel = 1) {
+        @.notes>>.OffEvent($channel);
     }
-    method OnEvents(Chord:D: ) {
-        @.notes>>.OnEvent;
+    method OnEvents(Chord:D: Int $channel = 1) {
+        @.notes>>.OnEvent($channel);
     }
 
     method Str(Chord:D: ) {
         my $name = @.notes>>.Str;
 
-        my @intervals;
-        loop (my $i = 1; $i < @.notes; ++$i) {
-            @intervals.push: (@.notes[$i] - @.notes[$i - 1]);
-        }
-
-        given @intervals[0,1] {
-            when (M3, m3)|(P4, M3)|(m3, P4) {
-                $name ~= " ==> {$.root.name} Maj";
-            }
-            when (m3, M3)|(P4, m3)|(M3, P4) {
-                $name ~= " ==> {$.root.name} min";
-            }
-            default {
-                $name ~= " ==> {$.root.name} vOv";
-            }
-        }
-
+        $name ~= " ==> $.root $.chord-type";
         $name ~ " (inversion: $.inversion)";
     }
 }
@@ -244,7 +290,7 @@ class Mode is export {
         $.chords.grep({ $_.root == $.root && $_.root.octave == $octave })[0]
     }
 
-    method root(Mode:D: :$octave = 4) {
+    method root-note(Mode:D: :$octave = 4) {
         Note.new(:midi($!root + $octave * 12))
     }
 
@@ -257,7 +303,7 @@ class Mode is export {
             @next.pick;
         }
     }
-    
+
     method notes() {
         if !@!notes.elems {
             for @(%modes{$.mode}) -> $mode-offset {
