@@ -35,10 +35,10 @@ class Note is export {
 
     method is-interval(Note:D: Note:D $rhs, Interval $int --> Bool) {
         if self < $rhs {
-            $rhs.midi - self.midi == $int
+            abs($rhs.name.value - self.name.value) == $int
         }
         else {
-            self.midi - $rhs.midi == $int
+            abs(self.name.value - $rhs.name.value) == $int
         }
     }
 
@@ -104,7 +104,7 @@ class Note is export {
     }
 
     method name {
-        NoteName($.midi % 12).key;
+        NoteName($.midi % 12);
     }
 
     method Str {
