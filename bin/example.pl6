@@ -39,21 +39,20 @@ multi MAIN(:$mode = 'major', Int :$root = 48) {
                         $next-chord .= invert(-1) while any($next-chord.notes>>.octave) > 4;
                         $next-chord .= invert( 1) while any($next-chord.notes>>.octave) < 4;
                         if $mode-obj.root-note.is-interval($next-chord.root, P5) {
-                            say $mode-obj.root-note.is-interval($next-chord.root, P5);
-                            say "dom7 and TT-subst for $next-chord";
-                            say $mode-obj.root-note.Str;
                             $next-chord .= dom7;
                             $next-chord .= TT-subst if rand < .3;
-                            say $next-chord.Str;
                         }
-                        say $next-chord.Str;
+                        if rand < .4 && $next-chord ~~ maj {
+                            rand > .5 ?? ($next-chord .= sus2) !! ($next-chord .= sus4);
+                        }
                         # proceed if rand < .2;
                         if $chord {
                             for $chord.OffEvents {
                                 @outevs.push: $_
                             }
                         }
-                        $chord = $next-chord.invert( (-1, 0, 1).pick );
+                        say $next-chord.Str;
+                        $chord = $next-chord;
                         for $chord.OnEvents {
                             @outevs.push: $_
                         }
