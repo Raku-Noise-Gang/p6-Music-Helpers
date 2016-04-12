@@ -1,6 +1,6 @@
 use Music::Helpers;
 
-multi MAIN(:$mode = 'major', Int :$root = 48, Int :$channel = 3) {
+multi MAIN(:$mode = 'major', Int :$root = 48) {
     my $mode-obj = Mode.new(:$mode, :root(NoteName($root % 12)));
 
     my $pm = Audio::PortMIDI.new;
@@ -17,7 +17,7 @@ multi MAIN(:$mode = 'major', Int :$root = 48, Int :$channel = 3) {
         }
     }
 
-    my @intervals = Interval.pick(3);
+    my @intervals = Interval.pick(5);
 
     react {
         my $next-chord;
@@ -33,12 +33,19 @@ multi MAIN(:$mode = 'major', Int :$root = 48, Int :$channel = 3) {
                     when * +& 1 {
                         if $sw++ %% 4 {
                             @intervals = Interval.pick(6);
-                            say "switching chords";
                         }
                         proceed if rand < .1;
                         $next-chord = $mode-obj.next-chord($chord, :@intervals).invert((-3, -2, -1, 0, 1, 2, 3).pick);
                         $next-chord .= invert(-1) while any($next-chord.notes>>.octave) > 4;
                         $next-chord .= invert( 1) while any($next-chord.notes>>.octave) < 3;
+                        if $mode-obj.root-note.is-interval($next-chord.root, P5) {
+                            say $mode-obj.root-note.is-interval($next-chord.root, P5);
+                            say "dom7 and TT-subst for $next-chord";
+                            say $mode-obj.root-note.Str;
+                            $next-chord .= dom7;
+                            $next-chord .= TT-subst if rand < .3;
+                            say $next-chord.Str;
+                        }
                         say $next-chord.Str;
                         # proceed if rand < .2;
                         for $chord.OffEvents {
