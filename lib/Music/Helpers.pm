@@ -115,28 +115,34 @@ class Note is export {
 import Note;
 class Chord { ... };
 
-role maj {
+role maj is export {
     method chord-type {
         "maj"
     }
     method dom7 {
         Chord.new(notes => [ |self.normal.notes, self.normal.notes[2] + m3 ])
     }
-}
-role min {
-    method chord-type {
-        "min"
+    method sus2 {
+        Chord.new(notes => [ self.normal.notes[0], self.normal.notes[0] + M2, self.normal.notes[2] ]).invert(self.inversion)
+    }
+    method sus4 {
+        Chord.new(notes => [ self.normal.notes[0], self.normal.notes[0] + P4, self.normal.notes[2] ]).invert(self.inversion)
     }
 }
-role weird {
-    method chord-type {
-        "weird"
-    }
+role sus2 is export {
+    method chord-type { "sus2" }
 }
-role dom7 {
-    method chord-type {
-        "dom7"
-    }
+role sus4 is export {
+    method chord-type { "sus4" }
+}
+role min is export {
+    method chord-type { "min" }
+}
+role weird is export {
+    method chord-type { "weird" }
+}
+role dom7 is export {
+    method chord-type { "dom7" }
     method TT-subst {
         my @notes = $.invert(-$.inversion).notes;
         my $third = @notes[3];
@@ -206,6 +212,16 @@ class Chord is export {
             }
             when (M3, m3, m3)|(m3, m3, M2)|(m3, M2, M3)|(M2, M3, m3) {
                 self does dom7;
+            }
+            when $_ == (M2, P4) && $!inversion == 0
+              || $_ == (P4, P4) && $!inversion == 1
+              || $_ == (P4, M2) && $!inversion == 2 {
+                self does sus2
+            }
+            when $_ == (P4, M2) && $!inversion == 0 
+              || $_ == (M2, P4) && $!inversion == 1
+              || $_ == (P4, P4) && $!inversion == 2 {
+                self does sus4
             }
             default { # probably want more cases here
                 self does weird;
