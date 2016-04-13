@@ -25,8 +25,8 @@ multi MAIN(:$mode = 'major', Int :$root = 48) {
         my $melnote = $chord.notes.pick + 12;
         my $third = $mode-obj.notes.grep({ $_.is-interval($melnote, one(M3, m3)) && $_.octave == $melnote.octave })[0];
         my $sw = 0;
+        my Audio::PortMIDI::Event @outevs;
         whenever $code -> $ev {
-            my Audio::PortMIDI::Event @outevs;
             if $ev {
                 given $ev[0].data-two {
                     my $redo = False;
@@ -36,15 +36,15 @@ multi MAIN(:$mode = 'major', Int :$root = 48) {
                         }
                         proceed if rand < .1;
                         $next-chord = $mode-obj.next-chord($chord, :@intervals).invert((-3, -2, -1, 0, 1, 2, 3).pick);
-                        $next-chord .= invert(-1) while any($next-chord.notes>>.octave) > 4;
-                        $next-chord .= invert( 1) while any($next-chord.notes>>.octave) < 4;
-                        if $mode-obj.root-note.is-interval($next-chord.root, P5) {
+                        if $mode-obj.root-note.is-interval($next-chord.root, P5) && $next-chord ~~ maj {
                             $next-chord .= dom7;
                             $next-chord .= TT-subst if rand < .3;
                         }
-                        if rand < .4 && $next-chord ~~ maj {
+                        if rand < .4 && $next-chord ~~ sus-able {
                             rand > .5 ?? ($next-chord .= sus2) !! ($next-chord .= sus4);
                         }
+                        $next-chord .= invert(-1) while any($next-chord.notes>>.octave) > 4;
+                        $next-chord .= invert( 1) while any($next-chord.notes>>.octave) < 4;
                         # proceed if rand < .2;
                         if $chord {
                             for $chord.OffEvents {
@@ -62,8 +62,8 @@ multi MAIN(:$mode = 'major', Int :$root = 48) {
                         if rand < .4 || $redo {
                             $redo = False;
                             @outevs.push: $melnote.OffEvent if $melnote;
-                            $melnote = $chord.notes.pick + (12).pick;
-                            if rand < .3 {
+                            $melnote = $chord.notes.pick + (12);
+                            if rand < .3 && $melnote {
                                 $melnote = $mode-obj.notes.grep({ 
                                     $_.is-interval($melnote, any(@intervals.pick(3)) ) 
                                 &&  $_.octave == $melnote.octave + (-1,0,1).pick;
@@ -77,7 +77,7 @@ multi MAIN(:$mode = 'major', Int :$root = 48) {
                             $third = $mode-obj.notes.grep({
                                 $_.is-interval($melnote, one(M3, m3)) 
                             &&  $_.octave == $melnote.octave + (-1,0,1).pick;
-                            }).pick;
+                            }).pick if $melnote;
                             @outevs.push: $melnote.?OnEvent // Empty;
                             @outevs.push: $third.?OnEvent // Empty;
                             $redo = True;
