@@ -23,9 +23,9 @@ Music::Helpers - Abstractions for handling musical content
 This module provides a few OO abstraction for handling musical content.
 Explicitly these are the classes C<Mode>, C<Chord> and C<Note> as well as Enums
 C<NoteName> and C<Interval>. As anyone with even passing musical knowledge
-knows, C<Mode>s C<Chord>s consists of C<Note>s with one of those being the root
-and the others having a specific half-step distance from this root. As the main
-purpose for this module is utilizing these classes over MIDI (via
+knows, C<Mode>s and C<Chord>s consists of C<Note>s with one of those being the
+root and the others having a specific half-step distance from this root. As the
+main purpose for this module is utilizing these classes over MIDI (via
 [Audio::PortMIDI](https://github.com/jonathanstowe/Audio-PortMIDI/),
 non-standard tunings will have to be handled by the instruments that play these
 notes.
