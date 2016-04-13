@@ -50,11 +50,11 @@ multi sub MAIN(:$client) {
                 s => Audio::PortMIDI::Event.new(:$event-type, :$channel, data-one => 37, data-two => 65, timestamp => 1000),
                 r => Audio::PortMIDI::Event.new(:$event-type, :$channel, data-one => 42, data-two => 65, timestamp => 10000000);
 
-    my $third-and = 0;
+    my Audio::PortMIDI::Event @outevs;
+    my $third-and = 2;
     react {
         whenever $code -> $ev {
             if $ev {
-                my Audio::PortMIDI::Event @outevs;
                 if $ev[0].event-type == SystemMessage {
                     my $data = $ev[0].data-two;
                     given $data {
@@ -63,7 +63,7 @@ multi sub MAIN(:$client) {
                             proceed
                         }
                         when 8 {
-                            @outevs.push: %map<B> if ++$third-and %% 3;
+                            @outevs.push: %map<B> if ++$third-and %% 4;
                             proceed
                         }
                         when 0 {
@@ -80,8 +80,9 @@ multi sub MAIN(:$client) {
                             proceed
                         }
                     }
-                    $out.write(@outevs);
                 }
+                $out.write(@outevs);
+                @outevs = [];
             }
         }
     }
