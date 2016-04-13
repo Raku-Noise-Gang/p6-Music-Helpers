@@ -16,8 +16,60 @@ Music::Helpers - Abstractions for handling musical content
     say $mode.tonic.Str;
 
     # prints 'F4 A4 C5 ==> F maj (inversion: 0)'
-    say $mode.next-chord($mode.tonic, intervals => [P4]);
+    say $mode.next-chord($mode.tonic, intervals => [P4]).Str;
 
+=head1 DESCRIPTION
+
+This module provides a few OO abstraction for handling musical content.
+Explicitly these are the classes C<Mode>, C<Chord> and C<Note> as well as Enums
+C<NoteName> and C<Interval>. As anyone with even passing musical knowledge
+knows, C<Mode>s C<Chord>s consists of C<Note>s with one of those being the root
+and the others having a specific half-step distance from this root. As the main
+purpose for this module is utilizing these classes over MIDI (via
+[Audio::PortMIDI](https://github.com/jonathanstowe/Audio-PortMIDI/),
+non-standard tunings will have to be handled by the instruments that play these
+notes.
+
+A C<Mode> knows, which natural triads it contains, and memoizes the C<Note>s
+and C<Chord>s on each step of the scale for probably more octaves than
+necessary. (That is, 10 octaves, from C-1 to C9, MIDI values 0 to 120.)
+Further, a C<Chord> knows via a set of Roles applied at construction time,
+which kind of alterations on it are feasible. E.g:
+
+    my $mode  = Mode.new(:root(F), :mode<major>);
+    my $fmaj  = $mode.tonic;
+    my $fdom7 = $fmaj.dom7;
+    # prints 'F4 G4 C5 => F4 sus2 (inversion: 0)'
+    say $fsus2.Str;
+
+    my $mode = Mode.new(:root(F), :mode<minor>);
+    my $fmin = $mode.tonic;
+    # dies, "Method 'dom7' not found for invocant of class 'Music::Helpers::Chord+{Music::Helpers::min}'
+    my $fdom7 = $fmin.dom7;
+
+Although I do readily admit that by far not all possible alterations and
+augmentations are currently implemented. The ones available are C<.sus2> and
+C<.sus4> for minor and major chords, and C<.dom7> for major chords. Patches
+welcome. :)
+
+Further, positive and negative inversions are supported via the method
+C<.invert>:
+
+    # prints 'C5 F5 A5 ==> F5 maj (inversion: 2)'
+    say $fmaj.invert(2).Str;
+
+    # prints 'C4 F4 A4 ==> F4 maj (inversion: 2)'
+    say $fmaj.invert(-1).Str;
+
+Finally, a C<Note> knows how to build a C<Audio::PortMIDI::Event> that can be
+sent via a C<Audio::PortMIDI::Stream>, and a C<Chord> knows to ask the C<Note>s
+it consists of for these Events:
+
+    # prints a whole lot, not replicated for brevity
+    say $fmaj.OnEvents;
+
+Note that this documentation is a work in progress. The file bin/example.pl6 in
+this repository might be of interest.
 
 =end pod
 
@@ -170,7 +222,7 @@ class Chord is export {
         @.notes[($.inversion + 2) % self.notes]
     }
 
-    method invert(Chord:D: $degree is copy = 1) {
+    method invert(Chord:D: Int $degree is copy = 1) {
         my @new-notes = @.notes;
         my $inversion = $degree % @.notes;
         if $degree == 0 {
@@ -218,7 +270,7 @@ class Chord is export {
               || $_ == (P4, M2) && $!inversion == 2 {
                 self does sus2
             }
-            when $_ == (P4, M2) && $!inversion == 0 
+            when $_ == (P4, M2) && $!inversion == 0
               || $_ == (M2, P4) && $!inversion == 1
               || $_ == (P4, P4) && $!inversion == 2 {
                 self does sus4
@@ -303,7 +355,7 @@ class Mode is export {
     submethod BUILD(:$!mode, NoteName :$!root, :@!weights) { }
 
     method tonic(Mode:D: :$octave = 4) {
-        $.chords.grep({ $_.root == $.root && $_.root.octave == $octave })[0]
+        $.chords.grep({ $_.root == $.root-note && $_.root.octave == $octave })[0]
     }
 
     method root-note(Mode:D: :$octave = 4) {
@@ -339,7 +391,7 @@ class Mode is export {
     my @chords;
     method chords(Mode:D:) {
         if !@chords {
-            my @all-notes = |$.notes(:all);
+            my @all-notes = |$.notes;
             loop (my int $i = 0; $i < @all-notes - 4; ++$i) {
                 my @notes = @all-notes[$i], @all-notes[$i + 2], @all-notes[$i + 4];
                 @chords.push: my $chrd = Chord.new: :@notes
