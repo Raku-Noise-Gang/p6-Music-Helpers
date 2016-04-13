@@ -26,7 +26,7 @@ C<NoteName> and C<Interval>. As anyone with even passing musical knowledge
 knows, C<Mode>s and C<Chord>s consists of C<Note>s with one of those being the
 root and the others having a specific half-step distance from this root. As the
 main purpose for this module is utilizing these classes over MIDI (via
-[Audio::PortMIDI](https://github.com/jonathanstowe/Audio-PortMIDI/),
+[Audio::PortMIDI](https://github.com/jonathanstowe/Audio-PortMIDI/)),
 non-standard tunings will have to be handled by the instruments that play these
 notes.
 
