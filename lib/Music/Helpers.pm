@@ -43,19 +43,11 @@ class Note is export {
     }
 
     multi infix:<==>(Note:D $lhs, Note:D $rhs) is export {
-        $lhs.same($rhs);
+        $lhs.name == $rhs.name
     }
 
-    #| Returns Nil or Less/Same/More
-    method same(Note:D $: Note:D $rhs) {
-        (self.midi % 12) == ($rhs.midi % 12)
-            ?? self.midi == $rhs.midi
-                ??  Same but True
-                !!  self.midi < $rhs.midi
-                    ??  Less
-                    !!  More
-            !! Nil
-
+    multi infix:<===>(Note:D $lhs, Note:D $rhs) is export {
+        $lhs == $rhs && $lhs.octave == $rhs.octave
     }
 
     multi infix:<->(Note:D $lhs, Note:D $rhs --> Interval) is export {
@@ -115,18 +107,20 @@ class Note is export {
 import Note;
 class Chord { ... };
 
-role maj is export {
-    method chord-type {
-        "maj"
-    }
-    method dom7 {
-        Chord.new(notes => [ |self.normal.notes, self.normal.notes[2] + m3 ])
-    }
+role sus-able is export {
     method sus2 {
         Chord.new(notes => [ self.normal.notes[0], self.normal.notes[0] + M2, self.normal.notes[2] ]).invert(self.inversion)
     }
     method sus4 {
         Chord.new(notes => [ self.normal.notes[0], self.normal.notes[0] + P4, self.normal.notes[2] ]).invert(self.inversion)
+    }
+}
+role maj does sus-able is export {
+    method chord-type {
+        "maj"
+    }
+    method dom7 {
+        Chord.new(notes => [ |self.normal.notes, self.normal.notes[2] + m3 ])
     }
 }
 role sus2 is export {
@@ -135,8 +129,11 @@ role sus2 is export {
 role sus4 is export {
     method chord-type { "sus4" }
 }
-role min is export {
+role min does sus-able is export {
     method chord-type { "min" }
+}
+role dim is export {
+    method chord-type { "dim" }
 }
 role weird is export {
     method chord-type { "weird" }
@@ -212,6 +209,9 @@ class Chord is export {
             }
             when (M3, m3, m3)|(m3, m3, M2)|(m3, M2, M3)|(M2, M3, m3) {
                 self does dom7;
+            }
+            when (m3, m3)|(m3, TT)|(TT, m3) {
+                self does dim
             }
             when $_ == (M2, P4) && $!inversion == 0
               || $_ == (P4, P4) && $!inversion == 1
