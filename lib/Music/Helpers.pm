@@ -160,7 +160,8 @@ import Note;
 class Chord { ... };
 
 role for-naming {
-    method chord-type { self.^shortname }
+    # XXX this feels terrible
+    method chord-type { self.HOW.roles(self).grep({ $_ ~~ for-naming && $_ !=== for-naming })[0].^shortname }
 }
 role sus-able is export {
     method sus2 {
