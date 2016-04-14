@@ -159,6 +159,9 @@ class Note is export {
 import Note;
 class Chord { ... };
 
+role for-naming {
+    method chord-type { self.^shortname }
+}
 role sus-able is export {
     method sus2 {
         Chord.new(notes => [ self.normal.notes[0], self.normal.notes[0] + M2, self.normal.notes[2] ]).invert(self.inversion)
@@ -167,31 +170,17 @@ role sus-able is export {
         Chord.new(notes => [ self.normal.notes[0], self.normal.notes[0] + P4, self.normal.notes[2] ]).invert(self.inversion)
     }
 }
-role maj does sus-able is export {
-    method chord-type {
-        "maj"
-    }
+role sus2 does for-naming is export { }
+role sus4 does for-naming is export { }
+role maj does sus-able does for-naming is export {
     method dom7 {
         Chord.new(notes => [ |self.normal.notes, self.normal.notes[2] + m3 ])
     }
 }
-role sus2 is export {
-    method chord-type { "sus2" }
-}
-role sus4 is export {
-    method chord-type { "sus4" }
-}
-role min does sus-able is export {
-    method chord-type { "min" }
-}
-role dim is export {
-    method chord-type { "dim" }
-}
-role weird is export {
-    method chord-type { "weird" }
-}
-role dom7 is export {
-    method chord-type { "dom7" }
+role min does sus-able does for-naming is export { }
+role dim does for-naming is export { }
+role weird does for-naming is export { }
+role dom7 does for-naming is export {
     method TT-subst {
         my @notes = $.invert(-$.inversion).notes;
         my $third = @notes[3];
@@ -201,6 +190,10 @@ role dom7 is export {
         Chord.new(notes => [ $root, $third, $fifth, $seventh ]).invert($.inversion);
     }
 }
+role min6 does for-naming is export { }
+role maj6 does for-naming is export { }
+role min7 does for-naming is export { }
+role maj7 does for-naming is export { }
 
 class Chord is export {
     has Note @.notes;
