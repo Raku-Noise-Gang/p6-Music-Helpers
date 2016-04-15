@@ -1,7 +1,6 @@
 language: perl6
 
 perl6:
-    v6.c
     latest
 
 install:
