@@ -1,0 +1,10 @@
+language: perl6
+
+perl6:
+    v6.c
+    latest
+
+install:
+    - rakudobrew install panda
+    - panda installdeps .
+
