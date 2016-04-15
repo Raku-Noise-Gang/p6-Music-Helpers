@@ -171,30 +171,92 @@ role sus-able is export {
         Chord.new(notes => [ self.normal.notes[0], self.normal.notes[0] + P4, self.normal.notes[2] ]).invert(self.inversion)
     }
 }
-role sus2 does for-naming is export { }
-role sus4 does for-naming is export { }
 role maj does sus-able does for-naming is export {
     method dom7 {
-        Chord.new(notes => [ |self.normal.notes, self.normal.notes[2] + m3 ])
+        Chord.new(notes => [ |self.normal.notes, self.normal.notes[2] + m3 ]).invert($.inversion)
+    }
+    method intervals-in-inversion {
+        [[M3, m3], [m3, P4], [P4, m3]]
     }
 }
-role min does sus-able does for-naming is export { }
-role dim does for-naming is export { }
-role weird does for-naming is export { }
+role min does sus-able does for-naming is export {
+    method intervals-in-inversion {
+        [[m3, M3], [M3, P4], [P4, m3]]
+    }
+}
+role dim does for-naming is export {
+    method intervals-in-inversion {
+        [[m3, m3], [m3, TT], [TT, m3]]
+    }
+}
+role aug does for-naming is export {
+    method intervals-in-inversion {
+        [[M3, M3], [M3, M3], [M3, M3]]
+    }
+}
+role maj6 does for-naming is export {
+    method intervals-in-inversion {
+        [[M3, m3, m2], [m3, m2, m3], [m2, m3, M3], [m3, M3, M3]]
+    }
+}
+#`[[[[
+    Something about these roles and applying them during BUILD is kind of shit.
+    as in, intervals alone aren't enough to determine what chord we are, we also need the root
+    to know from where to where to count and all.  so probably just sort by notename..?
+]]]]
+role min6 does for-naming is export {
+    method intervals-in-inversion {
+        [[m3, M3, m2], [M3, m2, m3], [m2, m3, m3], [m3, m3, M3]]
+    }
+}
 role dom7 does for-naming is export {
     method TT-subst {
         my @notes = $.invert(-$.inversion).notes;
         my $third = @notes[3];
-        my $seventh = @notes[1];
+        my $seventh = @notes[1] - 12;
         my $root = $third - M3;
         my $fifth = $seventh - m3;
-        Chord.new(notes => [ $root, $third, $fifth, $seventh ]).invert($.inversion);
+        Chord.new[notes => [ $root, $third, $fifth, $seventh ]].invert($.inversion);
+    }
+    method intervals-in-inversion {
+        [[M3, m3, m3], [m3, m3, M2], [m3, M2, M3], [M2, M3, m3]]
     }
 }
-role min6 does for-naming is export { }
-role maj6 does for-naming is export { }
-role min7 does for-naming is export { }
-role maj7 does for-naming is export { }
+role maj7 does for-naming is export {
+    method intervals-in-inversion {
+        [[M3, m3, M3], [m3, M3, m2], [M3, m2, M3], [m2, M3, m3]]
+    }
+}
+role min7 does for-naming is export {
+    method intervals-in-inversion {
+        [[m3, M3, m3], [M3, m3, M2], [m3, M2, m3], [M2, m3, M3]]
+    }
+}
+role aug7 does for-naming is export {
+    method intervals-in-inversion {
+        [[M3, M3, M2], [M3, m2, M2], [m2, M2, M3], [M2, M3, M3]]
+    }
+}
+role dim7 does for-naming is export {
+    method intervals-in-inversion {
+        [[m3, m3, m3], [m3, m3, m3], [m3, m3, m3], [m3, m3, m3]]
+    }
+}
+role halfdim7 does for-naming is export {
+    method intervals-in-inversion {
+        [[m3, m3, M3], [m3, M3, M2], [M3, M2, m3], [M2, m3, m3]]
+    }
+}
+role minmaj7 does for-naming is export {
+    method intervals-in-inversion {
+        [[m3, M3, M3], [M3, M3, m2], [M3, m2, m3], [m2, m3, M3]]
+    }
+}
+
+role weird does for-naming is export { }
+
+role sus2 does for-naming is export { }
+role sus4 does for-naming is export { }
 
 class Chord is export {
     has Note @.notes;
@@ -243,34 +305,13 @@ class Chord is export {
 
         my @intervals;
         loop (my $i = 1; $i < @!notes; ++$i) {
-            @intervals.push: Interval(@!notes[$i] - @!notes[$i - 1]);
+            @intervals.push: Interval((@!notes[$i] - @!notes[$i - 1]).value);
         }
 
-        given @intervals {
-            when (M3, m3)|(P4, M3)|(m3, P4) {
-                self does maj;
-            }
-            when (m3, M3)|(P4, m3)|(M3, P4) {
-                self does min;
-            }
-            when (M3, m3, m3)|(m3, m3, M2)|(m3, M2, M3)|(M2, M3, m3) {
-                self does dom7;
-            }
-            when (m3, m3)|(m3, TT)|(TT, m3) {
-                self does dim
-            }
-            when $_ == (M2, P4) && $!inversion == 0
-              || $_ == (P4, P4) && $!inversion == 1
-              || $_ == (P4, M2) && $!inversion == 2 {
-                self does sus2
-            }
-            when $_ == (P4, M2) && $!inversion == 0
-              || $_ == (M2, P4) && $!inversion == 1
-              || $_ == (P4, P4) && $!inversion == 2 {
-                self does sus4
-            }
-            default { # probably want more cases here
-                self does weird;
+        for maj, min, dim, aug, maj6, min6, dom7, maj7, min7, aug7, dim7, halfdim7, minmaj7 {
+            if @intervals eqv $_.intervals-in-inversion[$!inversion] {
+                self does $_;
+                last
             }
         }
 
@@ -332,8 +373,8 @@ class Mode is export {
                 aeolian     =>    [P1,M2,m3,P4,P5,M6,m7],
                 locrian     =>    [P1,m2,m3,P4,TT,m6,m7],
                 major       =>    [P1,M2,M3,P4,P5,M6,M7],
-                minor       =>    [P1,M2,m3,P4,P5,m6,m7],
-                pentatonic  =>    [P1,M2,M3,   P5,M6,  ];
+                minor       =>    [P1,M2,m3,P4,P5,m6,m7];
+                # pentatonic  =>    [P1,M2,M3,   P5,M6,  ];
 
     # subset ModeName of Str where * eq any %modes.keys;
 
