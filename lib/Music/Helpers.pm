@@ -176,7 +176,7 @@ role maj does sus-able does for-naming is export {
         Chord.new(notes => [ |self.normal.notes, self.normal.notes[2] + m3 ]).invert($.inversion)
     }
     method intervals-in-inversion {
-        [[M3, m3], [m3, P4], [P4, m3]]
+        [[M3, m3], [m3, P4], [P4, M3]]
     }
 }
 role min does sus-able does for-naming is export {
@@ -234,7 +234,7 @@ role min7 does for-naming is export {
 }
 role aug7 does for-naming is export {
     method intervals-in-inversion {
-        [[M3, M3, M2], [M3, m2, M2], [m2, M2, M3], [M2, M3, M3]]
+        [[M3, M3, M2], [M3, M2, M2], [M2, M2, M3], [M2, M3, M3]]
     }
 }
 role dim7 does for-naming is export {
@@ -255,8 +255,16 @@ role minmaj7 does for-naming is export {
 
 role weird does for-naming is export { }
 
-role sus2 does for-naming is export { }
-role sus4 does for-naming is export { }
+role sus2 does for-naming is export {
+    method intervals-in-inversion {
+        [[M2, P4], [P4, P4], [P4, M2]]
+    }
+}
+role sus4 does for-naming is export {
+    method intervals-in-inversion {
+        [[P4, M2], [M2, P4], [P4, P4]]
+    }
+}
 
 class Chord is export {
     has Note @.notes;
@@ -308,12 +316,14 @@ class Chord is export {
             @intervals.push: Interval((@!notes[$i] - @!notes[$i - 1]).value);
         }
 
-        for maj, min, dim, aug, maj6, min6, dom7, maj7, min7, aug7, dim7, halfdim7, minmaj7 {
+        my $role = weird;
+        for maj, min, dim, aug, maj6, min6, dom7, maj7, min7, aug7, dim7, halfdim7, minmaj7, sus2, sus4 {
             if @intervals eqv $_.intervals-in-inversion[$!inversion] {
-                self does $_;
+                $role = $_;
                 last
             }
         }
+        self does $role;
 
     }
 
