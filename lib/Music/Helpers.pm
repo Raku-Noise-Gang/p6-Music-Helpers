@@ -196,7 +196,7 @@ role aug does for-naming is export {
 }
 role maj6 does for-naming is export {
     method intervals-in-inversion {
-        [[M3, m3, m2], [m3, m2, m3], [m2, m3, M3], [m3, M3, M3]]
+        [[M3, m3, M2], [m3, M2, m3], [M2, m3, M3], [m3, M3, m3]]
     }
 }
 #`[[[[
@@ -206,7 +206,7 @@ role maj6 does for-naming is export {
 ]]]]
 role min6 does for-naming is export {
     method intervals-in-inversion {
-        [[m3, M3, m2], [M3, m2, m3], [m2, m3, m3], [m3, m3, M3]]
+        [[m3, M3, M2], [M3, M2, m3], [M2, m3, m3], [m3, m3, M3]]
     }
 }
 role dom7 does for-naming is export {
