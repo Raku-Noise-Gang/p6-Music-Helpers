@@ -36,6 +36,7 @@ ok $mode.tonic.notes>>.name.sort eqv $mode.tonic.invert(1).notes>>.name.sort,
         my @notes = Note.new(:48midi); # C4
         @notes.push: @notes[*-1] + $_ for @$value;
         my $chord = Chord.new(:@notes);
-        ok $chord.chord-type eq $key, "$key chord in inversion 0";
+        ok $chord.chord-type eq $key, 
+            "intervals for $key chord in inversion 0 are correct";
     }
 }
