@@ -103,8 +103,8 @@ class Note is export {
     }
 
     multi infix:<->(Note:D $lhs, Note:D $rhs --> Interval) is export {
-        my $oct = ($lhs.midi - $rhs.midi) div 12;
-        my $int = Interval( ($lhs.midi - $rhs.midi) % 12 );
+        my $oct = ($lhs.midi - $rhs.midi) div P8;
+        my $int = Interval( ($lhs.midi - $rhs.midi) % P8 );
         $int but role { method octaves { $oct } };
     }
 
@@ -137,7 +137,7 @@ class Note is export {
     }
 
     method octave {
-        $.midi div 12
+        $.midi div P8
     }
 
     method OffEvent(Int $channel = 1) {
@@ -148,62 +148,42 @@ class Note is export {
     }
 
     method name {
-        NoteName($.midi % 12);
+        NoteName($.midi % P8);
     }
 
     method Str {
-        NoteName($.midi % 12).key ~ ($.midi div 12)
+        NoteName($.midi % P8).key ~ ($.midi div P8)
     }
 }
 
 import Note;
 class Chord { ... };
 
+sub add-variants(Mu:D \type, :@variants) {
+    for @variants -> \variant {
+        next if type.^can(variant.^shortname);
+        type.^add_method(variant.^shortname,
+            my method (:$octave = 4) {
+                my @notes = |type.normal.notes, type.normal.notes[*-1] + variant.intervals-in-inversion[0][*-1];
+                for @notes {
+                    $_ += P8 while .octave < $octave;
+                    $_ -= P8 while .octave > $octave;
+                }
+                Chord.new(:@notes).invert(type.inversion);
+            }
+        );
+    }
+}
+
 role for-naming {
     # XXX this feels terrible
     method chord-type { self.HOW.roles(self).grep({ $_ ~~ for-naming && $_ !=== for-naming })[0].^shortname }
-}
-role sus-able is export {
-    method sus2 {
-        Chord.new(notes => [ self.normal.notes[0], self.normal.notes[0] + M2, self.normal.notes[2] ]).invert(self.inversion)
-    }
-    method sus4 {
-        Chord.new(notes => [ self.normal.notes[0], self.normal.notes[0] + P4, self.normal.notes[2] ]).invert(self.inversion)
-    }
-}
-role maj does sus-able does for-naming is export {
-    method dom7 {
-        Chord.new(notes => [ |self.normal.notes, self.normal.notes[2] + m3 ]).invert($.inversion)
-    }
-    method intervals-in-inversion {
-        [[M3, m3], [m3, P4], [P4, M3]]
-    }
-}
-role min does sus-able does for-naming is export {
-    method intervals-in-inversion {
-        [[m3, M3], [M3, P4], [P4, m3]]
-    }
-}
-role dim does for-naming is export {
-    method intervals-in-inversion {
-        [[m3, m3], [m3, TT], [TT, m3]]
-    }
-}
-role aug does for-naming is export {
-    method intervals-in-inversion {
-        [[M3, M3], [M3, M3], [M3, M3]]
-    }
 }
 role maj6 does for-naming is export {
     method intervals-in-inversion {
         [[M3, m3, M2], [m3, M2, m3], [M2, m3, M3], [m3, M3, m3]]
     }
 }
-#`[[[[
-    Something about these roles and applying them during BUILD is kind of shit.
-    as in, intervals alone aren't enough to determine what chord we are, we also need the root
-    to know from where to where to count and all.  so probably just sort by notename..?
-]]]]
 role min6 does for-naming is export {
     method intervals-in-inversion {
         [[m3, M3, M2], [M3, M2, m3], [M2, m3, m3], [m3, m3, M3]]
@@ -213,7 +193,7 @@ role dom7 does for-naming is export {
     method TT-subst {
         my @notes = $.invert(-$.inversion).notes;
         my $third = @notes[3];
-        my $seventh = @notes[1] - 12;
+        my $seventh = @notes[1] - P8;
         my $root = $third - M3;
         my $fifth = $seventh - m3;
         Chord.new[notes => [ $root, $third, $fifth, $seventh ]].invert($.inversion);
@@ -252,9 +232,6 @@ role minmaj7 does for-naming is export {
         [[m3, M3, M3], [M3, M3, m2], [M3, m2, m3], [m2, m3, M3]]
     }
 }
-
-role weird does for-naming is export { }
-
 role sus2 does for-naming is export {
     method intervals-in-inversion {
         [[M2, P4], [P4, P4], [P4, M2]]
@@ -265,6 +242,41 @@ role sus4 does for-naming is export {
         [[P4, M2], [M2, P4], [P4, P4]]
     }
 }
+
+role maj does for-naming is export {
+    method changes-into {
+        [sus2, sus4, maj6, maj7, dom7]
+    }
+    method intervals-in-inversion {
+        [[M3, m3], [m3, P4], [P4, M3]]
+    }
+}
+role min does for-naming is export {
+    method changes-into {
+        [sus2, sus4, min6, min7, minmaj7]
+    }
+    method intervals-in-inversion {
+        [[m3, M3], [M3, P4], [P4, m3]]
+    }
+}
+role dim does for-naming is export {
+    method changes-into {
+        [dim7, halfdim7]
+    }
+    method intervals-in-inversion {
+        [[m3, m3], [m3, TT], [TT, m3]]
+    }
+}
+role aug does for-naming is export {
+    method changes-into {
+        [aug7]
+    }
+    method intervals-in-inversion {
+        [[M3, M3], [M3, M3], [M3, M3]]
+    }
+}
+
+role weird does for-naming is export { }
 
 class Chord is export {
     has Note @.notes;
@@ -294,13 +306,13 @@ class Chord is export {
         }
         elsif $degree < 0 {
             while $degree++ < 0 {
-                my $tmp = @new-notes.pop - 12;
+                my $tmp = @new-notes.pop - P8;
                 @new-notes = $tmp, |@new-notes;
             }
         }
         elsif $degree > 0 {
             while $degree-- > 0 {
-                my $tmp = @new-notes.shift + 12;
+                my $tmp = @new-notes.shift + P8;
                 @new-notes = |@new-notes, $tmp;
             }
         }
@@ -324,7 +336,7 @@ class Chord is export {
             }
         }
         self does $role;
-
+        add-variants(self, :variants(self.changes-into)) if self.^can('changes-into');
     }
 
     method OffEvents(Chord:D: Int $channel = 1) {
@@ -404,7 +416,7 @@ class Mode is export {
     }
 
     method root-note(Mode:D: :$octave = 4) {
-        Note.new(:midi($!root + $octave * 12))
+        Note.new(:midi($!root + $octave * P8))
     }
 
     method next-chord(Mode:D: Chord $current, :@intervals = [ P1, P4, P5 ], :@octaves = [4]) {
@@ -421,7 +433,7 @@ class Mode is export {
         if !@!notes.elems {
             for @(%modes{$.mode}) -> $mode-offset {
                 for ^10 -> $oct-offset {
-                    @!notes.append( Note.new(midi => ($mode-offset + $!root + (12 * $oct-offset))) );
+                    @!notes.append( Note.new(midi => ($mode-offset + $!root + (P8 * $oct-offset))) );
                 }
             }
             @!notes .= sort({ $^a.midi <=> $^b.midi });

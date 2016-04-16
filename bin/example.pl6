@@ -36,12 +36,9 @@ multi MAIN(:$mode = 'major', Int :$root = 48) {
                         }
                         proceed if rand < .1;
                         $next-chord = $mode-obj.next-chord($chord, :@intervals).invert((-3, -2, -1, 0, 1, 2, 3).pick);
-                        if $mode-obj.root-note.is-interval($next-chord.root, P5) && $next-chord ~~ maj {
-                            $next-chord .= dom7;
-                            $next-chord .= TT-subst if rand < .3;
-                        }
-                        if rand < .4 && $next-chord ~~ sus-able {
-                            rand > .5 ?? ($next-chord .= sus2) !! ($next-chord .= sus4);
+                        if rand < .7 {
+                            my $variant = $next-chord.changes-into.pick.^shortname;
+                            $next-chord = $next-chord."$variant"();
                         }
                         $next-chord .= invert(-1) while any($next-chord.notes>>.octave) > 4;
                         $next-chord .= invert( 1) while any($next-chord.notes>>.octave) < 4;
