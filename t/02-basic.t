@@ -114,6 +114,6 @@ ok $mode.tonic.notes>>.name.sort eqv $mode.tonic.invert(1).notes>>.name.sort,
         @notes.push: @notes[*-1] + $_ for @$value;
         my $chord = Chord.new(:@notes, :3inversion);
         ok $chord.chord-type eq $key,
-            "intervals for $key chord in inversion 2 are correct";
+            "intervals for $key chord in inversion 3 are correct";
     }
 }
