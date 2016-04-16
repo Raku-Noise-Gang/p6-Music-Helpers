@@ -1,3 +1,7 @@
+branches:
+    except:
+        crimes-against-oop
+
 language: perl6
 
 perl6:
