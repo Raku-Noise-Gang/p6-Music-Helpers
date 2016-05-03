@@ -1,8 +1,8 @@
 { 
     "resource" : {  },
     "name" : "Music::Helpers",
-    "source-url" : "git://github.com/peschwa/p6-Music-Helpers.git",
-    "support" : { "source" : "git://github.com/peschwa/p6-Music-Helpers.git" },
+    "source-url" : "git://github.com/Perl6-Noise-Gang/p6-Music-Helpers.git",
+    "support" : { "source" : "git://github.com/Perl6-Noise-Gang/p6-Music-Helpers.git" },
     "perl" : "6",
     "build-depends" : [  ],
     "excludes" : {  },
