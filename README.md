@@ -34,7 +34,21 @@ A `Mode` knows, which natural triads it contains, and memoizes the `Note`s and `
     # dies, "Method 'dom7' not found for invocant of class 'Music::Helpers::Chord+{Music::Helpers::min}'
     my $fdom7 = $fmin.dom7;
 
-Although I do readily admit that by far not all possible alterations and augmentations are currently implemented. The ones available are `.sus2` and `.sus4` for minor and major chords, and `.dom7` for major chords. Patches welcome. :)
+Although I do readily admit that not all possible alterations and augmentations are currently implemented. A `Chord` tells you, which variants it support via the methods `.variant-methods` and `.variant-roles`:
+
+    my @notes = do [ Note.new(midi => $_ + 4 * P8) for C, E, G];
+    my $chord = Chord.new(:@notes, :0inversion);
+
+    # prints '[(sus2) (sus4) (maj6) (maj7) (dom7)]'
+    say $chord.variant-roles;
+
+    # prints '[sus2 sus4 maj6 maj7 dom7]'
+    say $chord.variant-methods;
+
+    # prints 'C4 E4 G4 B4 ==> C4 maj7 (inversion: 0)'
+    say $chord.variant-methods[3]($chord);
+
+Note that `.variant-methods` is usually what you want to use when trying to create a variant of a given `Chord`.
 
 Further, positive and negative inversions are supported via the method `.invert`:
 

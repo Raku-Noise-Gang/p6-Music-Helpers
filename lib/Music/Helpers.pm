@@ -47,10 +47,24 @@ which kind of alterations on it are feasible. E.g:
     # dies, "Method 'dom7' not found for invocant of class 'Music::Helpers::Chord+{Music::Helpers::min}'
     my $fdom7 = $fmin.dom7;
 
-Although I do readily admit that by far not all possible alterations and
-augmentations are currently implemented. The ones available are C<.sus2> and
-C<.sus4> for minor and major chords, and C<.dom7> for major chords. Patches
-welcome. :)
+Although I do readily admit that not all possible alterations and
+augmentations are currently implemented. A C<Chord> tells you, which variants
+it support via the methods C<.variant-methods> and C<.variant-roles>:
+
+    my @notes = do [ Note.new(midi => $_ + 4 * P8) for C, E, G];
+    my $chord = Chord.new(:@notes, :0inversion);
+
+    # prints '[(sus2) (sus4) (maj6) (maj7) (dom7)]'
+    say $chord.variant-roles;
+
+    # prints '[sus2 sus4 maj6 maj7 dom7]'
+    say $chord.variant-methods;
+
+    # prints 'C4 E4 G4 B4 ==> C4 maj7 (inversion: 0)'
+    say $chord.variant-methods[3]($chord);
+
+Note that C<.variant-methods> is usually what you want to use when trying to
+create a variant of a given C<Chord>.
 
 Further, positive and negative inversions are supported via the method
 C<.invert>:
@@ -60,6 +74,8 @@ C<.invert>:
 
     # prints 'C4 F4 A4 ==> F4 maj (inversion: 2)'
     say $fmaj.invert(-1).Str;
+
+
 
 Finally, a C<Note> knows how to build a C<Audio::PortMIDI::Event> that can be
 sent via a C<Audio::PortMIDI::Stream>, and a C<Chord> knows to ask the C<Note>s
@@ -77,7 +93,7 @@ use Audio::PortMIDI;
 
 unit package Music::Helpers;
 
-enum NoteName is export <C Cs D Ds E F Fs G Gs A As B Bs>;
+enum NoteName is export <C Cs D Ds E F Fs G Gs A As B>;
 enum Interval is export <P1 m2 M2 m3 M3 P4 TT P5 m6 M6 m7 M7 P8>;
 
 class Note is export {
@@ -159,22 +175,6 @@ class Note is export {
 import Note;
 class Chord { ... };
 
-sub add-variants(Mu:D \type, :@variants) {
-    for @variants -> \variant {
-        next if type.^can(variant.^shortname);
-        type.^add_method(variant.^shortname,
-            my method (:$octave = 4) {
-                my @notes = |type.normal.notes, type.normal.notes[*-1] + variant.intervals-in-inversion[0][*-1];
-                for @notes {
-                    $_ += P8 while .octave < $octave;
-                    $_ -= P8 while .octave > $octave;
-                }
-                Chord.new(:@notes).invert(type.inversion);
-            }
-        );
-    }
-}
-
 role for-naming {
     # XXX this feels terrible
     method chord-type { self.HOW.roles(self).grep({ $_ ~~ for-naming && $_ !=== for-naming })[0].^shortname }
@@ -244,7 +244,7 @@ role sus4 does for-naming is export {
 }
 
 role maj does for-naming is export {
-    method changes-into {
+    method variant-roles() {
         [sus2, sus4, maj6, maj7, dom7]
     }
     method intervals-in-inversion {
@@ -252,7 +252,7 @@ role maj does for-naming is export {
     }
 }
 role min does for-naming is export {
-    method changes-into {
+    method variant-roles() {
         [sus2, sus4, min6, min7, minmaj7]
     }
     method intervals-in-inversion {
@@ -260,7 +260,7 @@ role min does for-naming is export {
     }
 }
 role dim does for-naming is export {
-    method changes-into {
+    method variant-roles() {
         [dim7, halfdim7]
     }
     method intervals-in-inversion {
@@ -268,7 +268,7 @@ role dim does for-naming is export {
     }
 }
 role aug does for-naming is export {
-    method changes-into {
+    method variant-roles() {
         [aug7]
     }
     method intervals-in-inversion {
@@ -336,7 +336,28 @@ class Chord is export {
             }
         }
         self does $role;
-        add-variants(self, :variants(self.changes-into)) if self.^can('changes-into');
+
+        sub add-variants(Mu:D \type, :@variants) {
+            my @added-methods;
+            for @variants -> \variant {
+                next if type.^can(variant.^shortname);
+                @added-methods.push( my method (:$octave = 4) {
+                    my @notes = |type.normal.notes, type.normal.notes[*-1] + variant.intervals-in-inversion[0][*-1];
+                    for @notes {
+                        $_ += P8 while .octave < $octave;
+                        $_ -= P8 while .octave > $octave;
+                    }
+                    Chord.new(:@notes).invert(type.inversion);
+                });
+                @added-methods[*-1].set_name(variant.^shortname);
+                type.^add_method(variant.^shortname, @added-methods[*-1]);
+            }
+            type.^add_method('variant-methods', my method () {
+                @added-methods;
+            }) unless type.^can('variant-methods');
+        }
+
+        add-variants(self, :variants(self.variant-roles if self.^can('variant-roles')));
     }
 
     method OffEvents(Chord:D: Int $channel = 1) {
