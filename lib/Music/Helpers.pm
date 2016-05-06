@@ -28,7 +28,27 @@ root and the others having a specific half-step distance from this root. As the
 main purpose for this module is utilizing these classes over MIDI (via
 [Audio::PortMIDI](https://github.com/jonathanstowe/Audio-PortMIDI/)),
 non-standard tunings will have to be handled by the instruments that play these
-notes.
+notes. For convenience two enums, C<NoteName> and C<Interval> are exported as
+well. Note that the former uses only sharp notes, and uses a lower case 's' as
+the symbol for that, e.g:
+
+    say Cs; # works
+    say C#, Db, C♯, D♭; # don't work
+
+C<Interval> only exports from unison to octave:
+
+    # prints (P1 => 0 m2 => 1 M2 => 2 m3 => 3 M3 => 4 P4 => 5 TT => 6 P5 => 7 m6 => 8 M6 => 9 m7 => 10 M7 => 11 P8 => 12)
+    say Interval.enums.sort(*.value);
+
+The arithmetic operators C<&infix:<+>> and C<&infix:<->> are overloaded and
+exported for any combination between C<Note>s and C<Interval>s, and return new
+C<Note>s or C<Interval>s, depending on invocation:
+
+    my $c = Note.new(:48midi);
+    # $g contains 'Note.new(:43midi)'
+    my $g = ($c - P4);
+    # prints 'P4'
+    say $c - $g;
 
 A C<Mode> knows, which natural triads it contains, and memoizes the C<Note>s
 and C<Chord>s on each step of the scale for probably more octaves than
@@ -75,7 +95,8 @@ C<.invert>:
     # prints 'C4 F4 A4 ==> F4 maj (inversion: 2)'
     say $fmaj.invert(-1).Str;
 
-
+Both C<&infix:<+>> and C<&infix:<->> have appropriate candidates defined for
+C<Note>s and intervals
 
 Finally, a C<Note> knows how to build a C<Audio::PortMIDI::Event> that can be
 sent via a C<Audio::PortMIDI::Stream>, and a C<Chord> knows to ask the C<Note>s
