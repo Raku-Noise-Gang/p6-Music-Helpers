@@ -32,8 +32,8 @@ notes. For convenience two enums, C<NoteName> and C<Interval> are exported as
 well. Note that the former uses only sharp notes, and uses a lower case 's' as
 the symbol for that, e.g:
 
-    say Cs; # works
-    say C#, Db, C♯, D♭; # don't work
+    say Db; # works
+    say C#, Cs, C♯, D♭; # don't work
 
 C<Interval> only exports from unison to octave:
 
@@ -111,7 +111,7 @@ use Audio::PortMIDI;
 
 unit package Music::Helpers;
 
-enum NoteName is export <C Cs D Ds E F Fs G Gs A As B>;
+enum NoteName is export <C Cb D Db E F Fb G Gb A Ab B>;
 enum Interval is export <P1 m2 M2 m3 M3 P4 TT P5 m6 M6 m7 M7 P8>;
 
 class Note is export {
@@ -360,7 +360,10 @@ class Chord is export {
             for @variants -> \variant {
                 next if type.^can(variant.^shortname);
                 @added-methods.push( my method (:$octave = 4) {
-                    my @notes = |type.normal.notes, type.normal.notes[*-1] + variant.intervals-in-inversion[0][*-1];
+                    my @notes = type.root;
+                    for [\+] @(variant.intervals-in-inversion[0]) {
+                        @notes.push: Note.new(midi => (@notes[0] + $_).midi);
+                    }
                     for @notes {
                         $_ += P8 while .octave < $octave;
                         $_ -= P8 while .octave > $octave;
