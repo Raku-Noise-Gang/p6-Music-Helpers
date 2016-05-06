@@ -19,7 +19,23 @@ SYNOPSIS
 DESCRIPTION
 ===========
 
-This module provides a few OO abstraction for handling musical content. Explicitly these are the classes `Mode`, `Chord` and `Note` as well as Enums `NoteName` and `Interval`. As anyone with even passing musical knowledge knows, `Mode`s and `Chord`s consists of `Note`s with one of those being the root and the others having a specific half-step distance from this root. As the main purpose for this module is utilizing these classes over MIDI (via [Audio::PortMIDI](https://github.com/jonathanstowe/Audio-PortMIDI/)), non-standard tunings will have to be handled by the instruments that play these notes.
+This module provides a few OO abstraction for handling musical content. Explicitly these are the classes `Mode`, `Chord` and `Note` as well as Enums `NoteName` and `Interval`. As anyone with even passing musical knowledge knows, `Mode`s and `Chord`s consists of `Note`s with one of those being the root and the others having a specific half-step distance from this root. As the main purpose for this module is utilizing these classes over MIDI (via [Audio::PortMIDI](https://github.com/jonathanstowe/Audio-PortMIDI/)), non-standard tunings will have to be handled by the instruments that play these notes. For convenience two enums, `NoteName` and `Interval` are exported as well. Note that the former uses only sharp notes, and uses a lower case 's' as the symbol for that, e.g:
+
+    say Cs; # works
+    say C#, Db, C♯, D♭; # don't work
+
+`Interval` only exports from unison to octave:
+
+    # prints (P1 => 0 m2 => 1 M2 => 2 m3 => 3 M3 => 4 P4 => 5 TT => 6 P5 => 7 m6 => 8 M6 => 9 m7 => 10 M7 => 11 P8 => 12)
+    say Interval.enums.sort(*.value);
+
+The arithmetic operators `&infix:<+>` and `&infix:<->` are overloaded and exported for any combination between `Note`s and `Interval`s, and return new `Note`s or `Interval`s, depending on invocation:
+
+    my $c = Note.new(:48midi);
+    # $g contains 'Note.new(:43midi)'
+    my $g = ($c - P4);
+    # prints 'P4'
+    say $c - $g;
 
 A `Mode` knows, which natural triads it contains, and memoizes the `Note`s and `Chord`s on each step of the scale for probably more octaves than necessary. (That is, 10 octaves, from C-1 to C9, MIDI values 0 to 120.) Further, a `Chord` knows via a set of Roles applied at construction time, which kind of alterations on it are feasible. E.g:
 
@@ -57,6 +73,8 @@ Further, positive and negative inversions are supported via the method `.invert`
 
     # prints 'C4 F4 A4 ==> F4 maj (inversion: 2)'
     say $fmaj.invert(-1).Str;
+
+Both `&infix:<+>` and `&infix:<->` have appropriate candidates defined for `Note`s and intervals
 
 Finally, a `Note` knows how to build a `Audio::PortMIDI::Event` that can be sent via a `Audio::PortMIDI::Stream`, and a `Chord` knows to ask the `Note`s it consists of for these Events:
 
