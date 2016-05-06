@@ -74,8 +74,6 @@ Further, positive and negative inversions are supported via the method `.invert`
     # prints 'C4 F4 A4 ==> F4 maj (inversion: 2)'
     say $fmaj.invert(-1).Str;
 
-Both `&infix:<+>` and `&infix:<->` have appropriate candidates defined for `Note`s and intervals
-
 Finally, a `Note` knows how to build a `Audio::PortMIDI::Event` that can be sent via a `Audio::PortMIDI::Stream`, and a `Chord` knows to ask the `Note`s it consists of for these Events:
 
     # prints a whole lot, not replicated for brevity

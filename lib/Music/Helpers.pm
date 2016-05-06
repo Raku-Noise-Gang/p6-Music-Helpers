@@ -95,9 +95,6 @@ C<.invert>:
     # prints 'C4 F4 A4 ==> F4 maj (inversion: 2)'
     say $fmaj.invert(-1).Str;
 
-Both C<&infix:<+>> and C<&infix:<->> have appropriate candidates defined for
-C<Note>s and intervals
-
 Finally, a C<Note> knows how to build a C<Audio::PortMIDI::Event> that can be
 sent via a C<Audio::PortMIDI::Stream>, and a C<Chord> knows to ask the C<Note>s
 it consists of for these Events:
