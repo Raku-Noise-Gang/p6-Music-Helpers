@@ -111,7 +111,7 @@ use Audio::PortMIDI;
 
 unit package Music::Helpers;
 
-enum NoteName is export <C Cb D Db E F Fb G Gb A Ab B>;
+enum NoteName is export <C Db D Eb E F Gb G Ab A Bb B>;
 enum Interval is export <P1 m2 M2 m3 M3 P4 TT P5 m6 M6 m7 M7 P8>;
 
 class Note is export {
@@ -359,16 +359,15 @@ class Chord is export {
             my @added-methods;
             for @variants -> \variant {
                 next if type.^can(variant.^shortname);
-                @added-methods.push( my method (:$octave = 4) {
-                    my @notes = type.root;
+                @added-methods.push( my method () {
+                    my @notes = self.normal.root;
                     for [\+] @(variant.intervals-in-inversion[0]) {
                         @notes.push: Note.new(midi => (@notes[0] + $_).midi);
                     }
-                    for @notes {
-                        $_ += P8 while .octave < $octave;
-                        $_ -= P8 while .octave > $octave;
-                    }
-                    Chord.new(:@notes).invert(type.inversion);
+                    my $new-chord = Chord.new(:@notes).invert(self.inversion);
+                    $new-chord .= invert(-1) while self.normal.root < $new-chord.root;
+                    $new-chord .= invert( 1) while self.normal.root > $new-chord.root;
+                    $new-chord;
                 });
                 @added-methods[*-1].set_name(variant.^shortname);
                 type.^add_method(variant.^shortname, @added-methods[*-1]);
